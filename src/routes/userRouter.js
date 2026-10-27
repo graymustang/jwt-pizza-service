@@ -82,8 +82,13 @@ userRouter.get(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    res.json({});
+    res.json({
+      message: 'not implemented',
+      users: [],
+      more: false,
+    });
   }),
 );
 
 module.exports = userRouter;
+
