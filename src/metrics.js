@@ -37,6 +37,19 @@ const requestLatency = meter.createHistogram('http_request_duration_ms', {
   unit: 'ms',
 });
 
+const authenticationCounter = meter.createCounter(
+  'authentication_attempts_total',
+  {
+    description: 'Total authentication attempts',
+  }
+);
+
+function recordAuthentication(success) {
+  authenticationCounter.add(1, {
+    result: success ? 'success' : 'failure',
+  });
+}
+
 function requestTracker(req, res, next) {
   const start = performance.now();
 
@@ -57,5 +70,5 @@ function requestTracker(req, res, next) {
 
 module.exports = {
   requestTracker,
-
+  recordAuthentication,
 };
