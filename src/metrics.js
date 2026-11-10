@@ -51,6 +51,34 @@ const activeUsersGauge = meter.createObservableGauge(
   }
 );
 
+const pizzasSoldCounter = meter.createCounter('pizzas_sold_total', {
+  description: 'Total number of pizzas sold',
+});
+
+const pizzaFailuresCounter = meter.createCounter('pizza_creation_failures_total', {
+  description: 'Total failed pizza creation attempts',
+});
+
+const pizzaRevenueCounter = meter.createCounter('pizza_revenue_total', {
+  description: 'Total revenue from pizza purchases',
+});
+
+const pizzaLatencyHistogram = meter.createHistogram('pizza_creation_duration_ms', {
+  description: 'Time required to create pizzas',
+  unit: 'ms',
+});
+
+function recordPizzaPurchase(success, quantity, revenue, latency) {
+  pizzaLatencyHistogram.record(latency);
+
+  if (success) {
+    pizzasSoldCounter.add(quantity);
+    pizzaRevenueCounter.add(revenue);
+  } else {
+    pizzaFailuresCounter.add(1);
+  }
+}
+
 activeUsersGauge.addCallback(async (result) => {
   try {
     const { DB } = require('./database/database.js');
@@ -89,4 +117,5 @@ function requestTracker(req, res, next) {
 module.exports = {
   requestTracker,
   recordAuthentication,
+  recordPizzaPurchase,
 };
