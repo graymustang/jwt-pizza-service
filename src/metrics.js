@@ -1,9 +1,7 @@
 const { metrics } = require('@opentelemetry/api');
-const { MeterProvider, PeriodicExportingMetricReader } =
-  require('@opentelemetry/sdk-metrics');
-const { OTLPMetricExporter } =
-  require('@opentelemetry/exporter-metrics-otlp-http');
-
+const os = require('os');
+const { MeterProvider, PeriodicExportingMetricReader } = require('@opentelemetry/sdk-metrics');
+const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
 const config = require('./config');
 
 const exporter = new OTLPMetricExporter({
@@ -66,6 +64,42 @@ const pizzaRevenueCounter = meter.createCounter('pizza_revenue_total', {
 const pizzaLatencyHistogram = meter.createHistogram('pizza_creation_duration_ms', {
   description: 'Time required to create pizzas',
   unit: 'ms',
+});
+
+const cpuUsageGauge = meter.createObservableGauge(
+  'cpu_usage_percent',
+  {
+    description: 'System CPU usage percentage',
+    unit: '%',
+  }
+);
+
+const memoryUsageGauge = meter.createObservableGauge(
+  'memory_usage_percent',
+  {
+    description: 'System memory usage percentage',
+    unit: '%',
+  }
+);
+
+function getCpuUsagePercentage() {
+  const cpuUsage = os.loadavg()[0] / os.cpus().length;
+  return Math.min(cpuUsage * 100, 100);
+}
+
+function getMemoryUsagePercentage() {
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+
+  return ((totalMemory - freeMemory) / totalMemory) * 100;
+}
+
+cpuUsageGauge.addCallback((result) => {
+  result.observe(getCpuUsagePercentage());
+});
+
+memoryUsageGauge.addCallback((result) => {
+  result.observe(getMemoryUsagePercentage());
 });
 
 function recordPizzaPurchase(success, quantity, revenue, latency) {
