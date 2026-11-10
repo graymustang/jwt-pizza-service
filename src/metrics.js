@@ -1,27 +1,55 @@
-const httpMetrics = {
-  GET: 0,
-  POST: 0,
-  PUT: 0,
-  DELETE: 0,
-  total: 0,
-};
+const { metrics } = require('@opentelemetry/api');
+const { MeterProvider, PeriodicExportingMetricReader } =
+  require('@opentelemetry/sdk-metrics');
+const { OTLPMetricExporter } =
+  require('@opentelemetry/exporter-metrics-otlp-http');
 
-const requestLatencies = [];
+const config = require('./config');
+
+const exporter = new OTLPMetricExporter({
+  url: config.metrics.endpointUrl,
+  headers: {
+    Authorization: 'Basic ' + Buffer.from(
+      `${config.metrics.accountId}:${config.metrics.apiKey}`
+    ).toString('base64'),
+  },
+});
+
+const reader = new PeriodicExportingMetricReader({
+  exporter,
+  exportIntervalMillis: 60000,
+});
+
+const provider = new MeterProvider({
+  readers: [reader],
+});
+
+metrics.setGlobalMeterProvider(provider);
+
+const meter = metrics.getMeter(config.metrics.source);
+
+const requestCounter = meter.createCounter('http_requests_total', {
+  description: 'Total HTTP requests',
+});
+
+const requestLatency = meter.createHistogram('http_request_duration_ms', {
+  description: 'HTTP request latency in milliseconds',
+  unit: 'ms',
+});
 
 function requestTracker(req, res, next) {
   const start = performance.now();
 
   res.on('finish', () => {
-    const method = req.method;
+    const attributes = {
+      method: req.method,
+      status: res.statusCode,
+    };
 
-    httpMetrics.total++;
-
-    if (Object.hasOwn(httpMetrics, method)) {
-      httpMetrics[method]++;
-    }
+    requestCounter.add(1, attributes);
 
     const latency = performance.now() - start;
-    requestLatencies.push(latency);
+    requestLatency.record(latency, attributes);
   });
 
   next();
@@ -29,6 +57,5 @@ function requestTracker(req, res, next) {
 
 module.exports = {
   requestTracker,
-  httpMetrics,
-  requestLatencies,
+
 };
