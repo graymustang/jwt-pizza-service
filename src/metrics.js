@@ -44,6 +44,24 @@ const authenticationCounter = meter.createCounter(
   }
 );
 
+const activeUsersGauge = meter.createObservableGauge(
+  'active_users',
+  {
+    description: 'Number of currently logged-in users',
+  }
+);
+
+activeUsersGauge.addCallback(async (result) => {
+  try {
+    const { DB } = require('./database/database.js');
+    const count = await DB.getActiveUserCount();
+
+    result.observe(count);
+  } catch (error) {
+    console.error('Error collecting active users:', error);
+  }
+});
+
 function recordAuthentication(success) {
   authenticationCounter.add(1, {
     result: success ? 'success' : 'failure',
