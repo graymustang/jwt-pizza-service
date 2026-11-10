@@ -12,6 +12,7 @@
   "dependencies": {
     "@opentelemetry/api": "^1.10.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.301.1",
+    "@opentelemetry/resources": "^3.1.1",
     "@opentelemetry/sdk-metrics": "^3.1.1",
     "bcrypt": "^6.0.0",
     "express": "^4.19.2",

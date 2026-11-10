@@ -2,6 +2,7 @@ const { metrics } = require('@opentelemetry/api');
 const os = require('os');
 const { MeterProvider, PeriodicExportingMetricReader } = require('@opentelemetry/sdk-metrics');
 const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
+const { resourceFromAttributes } = require('@opentelemetry/resources');
 const config = require('./config');
 
 const exporter = new OTLPMetricExporter({
@@ -19,6 +20,9 @@ const reader = new PeriodicExportingMetricReader({
 });
 
 const provider = new MeterProvider({
+  resource: resourceFromAttributes({
+    'service.name': config.metrics.source,
+  }),
   readers: [reader],
 });
 
