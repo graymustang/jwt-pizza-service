@@ -1,4 +1,5 @@
 {
+  "testPathIgnorePatterns": ["/dist/"],
   "collectCoverage": true,
   "coverageReporters": ["json-summary", "text"],
   "coverageThreshold": {
