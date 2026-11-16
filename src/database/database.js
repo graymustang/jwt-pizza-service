@@ -4,6 +4,7 @@ const config = require("../config.js");
 const { StatusCodeError } = require("../endpointHelper.js");
 const { Role } = require("../model/model.js");
 const dbModel = require("./dbModel.js");
+const logger = require("../logger.js");
 class DB {
   constructor() {
     this.initialized = this.initializeDatabase();
@@ -417,13 +418,16 @@ class DB {
   }
 
   async query(connection, sql, params) {
+    logger.logDatabaseQuery(sql);
     const [results] = await connection.execute(sql, params);
     return results;
   }
 
   async getID(connection, key, value, table) {
+    const sql = `SELECT id FROM ${table} WHERE ${key}=?`;
+    logger.logDatabaseQuery(sql);
     const [rows] = await connection.execute(
-      `SELECT id FROM ${table} WHERE ${key}=?`,
+      sql,
       [value],
     );
     if (rows.length > 0) {
@@ -447,6 +451,7 @@ class DB {
       decimalNumbers: true,
     });
     if (setUse) {
+      logger.logDatabaseQuery(`USE ${config.db.connection.database}`);
       await connection.query(`USE ${config.db.connection.database}`);
     }
     return connection;
@@ -461,9 +466,10 @@ class DB {
           dbExists ? "Database exists" : "Database does not exist, creating it",
         );
 
-        await connection.query(
-          `CREATE DATABASE IF NOT EXISTS ${config.db.connection.database}`,
-        );
+        const createDatabaseSql = `CREATE DATABASE IF NOT EXISTS ${config.db.connection.database}`;
+        logger.logDatabaseQuery(createDatabaseSql);
+        await connection.query(createDatabaseSql);
+        logger.logDatabaseQuery(`USE ${config.db.connection.database}`);
         await connection.query(`USE ${config.db.connection.database}`);
 
         if (!dbExists) {
@@ -471,6 +477,7 @@ class DB {
         }
 
         for (const statement of dbModel.tableCreateStatements) {
+          logger.logDatabaseQuery(statement);
           await connection.query(statement);
         }
 
@@ -498,8 +505,10 @@ class DB {
   }
 
   async checkDatabaseExists(connection) {
+    const sql = `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`;
+    logger.logDatabaseQuery(sql);
     const [rows] = await connection.execute(
-      `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`,
+      sql,
       [config.db.connection.database],
     );
     return rows.length > 0;
