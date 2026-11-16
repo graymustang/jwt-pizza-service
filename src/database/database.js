@@ -498,7 +498,10 @@ class DB {
         JSON.stringify({
           message: "Error initializing database",
           exception: err.message,
-          connection: config.db.connection,
+          connection: {
+            host: config.db.connection.host,
+            database: config.db.connection.database,
+          },
         }),
       );
     }
