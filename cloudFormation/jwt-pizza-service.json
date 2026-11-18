@@ -1,0 +1,237 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "JWT Pizza Service infrastructure (adapted from CS 329 template)",
+  "Parameters": {
+    "ServiceName": {
+      "Type": "String",
+      "Description": "Unique name for the new ECS service, cluster, ALB and target group",
+      "Default": "jwt-pizza-service-next"
+    },
+    "CertificateArn": {
+      "Type": "String",
+      "Description": "ACM certificate ARN in us-east-1 for the HTTPS listener",
+      "Default": "arn:aws:acm:us-east-1:697372770302:certificate/def49969-226d-43c5-a5fe-fc5bc8d14ebb"
+    },
+    "VpcID": {
+      "Type": "String",
+      "Description": "VPC for the ALB and target group",
+      "Default": "vpc-027388c998c78ed0e",
+      "AllowedPattern": "^vpc-[0-9a-f]{8,17}$"
+    },
+    "SubnetIDs": {
+      "Type": "CommaDelimitedList",
+      "Description": "Subnets for the ECS service and ALB",
+      "Default": "subnet-0d117f3a7c5cb2b33,subnet-07943eaff04248321,subnet-0141d5476e2a8fa13,subnet-0a445d6022bed1b8b,subnet-0d3e7e10bcb8a2b4e,subnet-03115b732eed91c9e"
+    },
+    "SecurityGroupIDs": {
+      "Type": "CommaDelimitedList",
+      "Description": "Security group(s) for ECS and ALB",
+      "Default": "sg-0cbd0dd42b2aab6"
+    },
+    "ContainerName": {
+      "Type": "String",
+      "Description": "Container definition Name in the referenced task definition; verify in ECS",
+      "Default": "jwt-pizza-service"
+    },
+    "TaskDefinition": {
+      "Type": "String",
+      "Description": "Existing task definition family:revision; update after deployments if needed",
+      "Default": "jwt-pizza-service:1"
+    }
+  },
+  "Rules": {
+    "RequireCertificateArn": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Equals": [
+                  {
+                    "Ref": "CertificateArn"
+                  },
+                  ""
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "Supply the ACM HTTPS certificate ARN before deploying."
+        }
+      ]
+    }
+  },
+  "Resources": {
+    "ECSCluster": {
+      "Type": "AWS::ECS::Cluster",
+      "Properties": {
+        "ClusterName": {
+          "Ref": "ServiceName"
+        }
+      }
+    },
+    "ECSService": {
+      "Type": "AWS::ECS::Service",
+      "Properties": {
+        "Cluster": {
+          "Ref": "ECSCluster"
+        },
+        "CapacityProviderStrategy": [
+          {
+            "CapacityProvider": "FARGATE",
+            "Base": 0,
+            "Weight": 1
+          }
+        ],
+        "TaskDefinition": {
+          "Ref": "TaskDefinition"
+        },
+        "ServiceName": {
+          "Ref": "ServiceName"
+        },
+        "SchedulingStrategy": "REPLICA",
+        "DesiredCount": 1,
+        "LoadBalancers": [
+          {
+            "ContainerName": {
+              "Ref": "ContainerName"
+            },
+            "ContainerPort": 80,
+            "TargetGroupArn": {
+              "Ref": "TargetGroup"
+            }
+          }
+        ],
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": {
+              "Ref": "SecurityGroupIDs"
+            },
+            "Subnets": {
+              "Ref": "SubnetIDs"
+            }
+          }
+        },
+        "PlatformVersion": "LATEST",
+        "DeploymentConfiguration": {
+          "MaximumPercent": 200,
+          "MinimumHealthyPercent": 100,
+          "DeploymentCircuitBreaker": {
+            "Enable": true,
+            "Rollback": true
+          }
+        },
+        "DeploymentController": {
+          "Type": "ECS"
+        },
+        "EnableECSManagedTags": true
+      },
+      "DependsOn": [
+        "Listener"
+      ]
+    },
+    "LoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Type": "application",
+        "Name": {
+          "Ref": "ServiceName"
+        },
+        "SecurityGroups": {
+          "Ref": "SecurityGroupIDs"
+        },
+        "Subnets": {
+          "Ref": "SubnetIDs"
+        }
+      }
+    },
+    "TargetGroup": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "HealthCheckPath": "/",
+        "Name": {
+          "Ref": "ServiceName"
+        },
+        "Port": 80,
+        "Protocol": "HTTP",
+        "TargetType": "ip",
+        "HealthCheckProtocol": "HTTP",
+        "VpcId": {
+          "Ref": "VpcID"
+        },
+        "TargetGroupAttributes": [
+          {
+            "Key": "deregistration_delay.timeout_seconds",
+            "Value": "300"
+          }
+        ]
+      }
+    },
+    "Listener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "DefaultActions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": {
+              "Ref": "TargetGroup"
+            }
+          }
+        ],
+        "LoadBalancerArn": {
+          "Ref": "LoadBalancer"
+        },
+        "Port": 443,
+        "Protocol": "HTTPS",
+        "Certificates": [
+          {
+            "CertificateArn": {
+              "Ref": "CertificateArn"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "ClusterName": {
+      "Description": "Cluster",
+      "Value": {
+        "Ref": "ECSCluster"
+      }
+    },
+    "ECSService": {
+      "Description": "Service",
+      "Value": {
+        "Ref": "ECSService"
+      }
+    },
+    "LoadBalancer": {
+      "Description": "Load balancer",
+      "Value": {
+        "Ref": "LoadBalancer"
+      }
+    },
+    "LoadBalancerDNS": {
+      "Description": "New ALB DNS name for updating DNS",
+      "Value": {
+        "Fn::GetAtt": [
+          "LoadBalancer",
+          "DNSName"
+        ]
+      }
+    },
+    "Listener": {
+      "Description": "Load balancer listener",
+      "Value": {
+        "Ref": "Listener"
+      }
+    },
+    "TargetGroup": {
+      "Description": "Load balancer target group",
+      "Value": {
+        "Ref": "TargetGroup"
+      }
+    }
+  }
+}
