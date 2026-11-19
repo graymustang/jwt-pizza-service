@@ -26,7 +26,7 @@
     "SecurityGroupIDs": {
       "Type": "CommaDelimitedList",
       "Description": "Security group(s) for ECS and ALB",
-      "Default": "sg-0cbd0dd42b2aab6"
+      "Default": "sg-0cbd0dd42b2b2aab6"
     },
     "ContainerName": {
       "Type": "String",
