@@ -144,6 +144,26 @@ jobs:
         run: |
           docker buildx build --platform=linux/arm64 -t $ECR_REGISTRY/$ECR_REPOSITORY:latest --push .
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> "$GITHUB_OUTPUT"
-      - name: Deploy new container
+
+      - name: Deploy new container if ECS service exists
         run: |
-          aws ecs update-service --cluster jwt-pizza-service --service jwt-pizza-service-service-3nuc0wdy --region us-east-1 --force-new-deployment
+          CLUSTER="jwt-pizza-service-next"
+          SERVICE="jwt-pizza-service-next"
+
+          STATUS=$(aws ecs describe-services \
+            --cluster "$CLUSTER" \
+            --services "$SERVICE" \
+            --region us-east-1 \
+            --query 'services[0].status' \
+            --output text)
+
+          if [ "$STATUS" = "ACTIVE" ]; then
+            echo "ECS service found. Deploying new container..."
+            aws ecs update-service \
+              --cluster "$CLUSTER" \
+              --service "$SERVICE" \
+              --region us-east-1 \
+              --force-new-deployment
+          else
+            echo "ECS service is offline. Skipping deployment."
+          fi
