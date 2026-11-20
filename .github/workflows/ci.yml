@@ -167,3 +167,10 @@ jobs:
           else
             echo "ECS service is offline. Skipping deployment."
           fi
+
+      - name: Annotate deployment in Grafana
+        run: |
+          curl -sS --fail-with-body -X POST https://nimbleisthmus350.grafana.net/api/annotations \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"dashboardUID":"grsdv7s", "panelId":5, "tags":["backend","production"], "text":"Version '"$version"' deployed" }'
