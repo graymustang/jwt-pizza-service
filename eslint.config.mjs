@@ -20,4 +20,7 @@ export default defineConfig([
   {
     rules: { semi: "error" },
   },
+  {
+    ignores: ["loadTests/loginAndOrder.js"],
+  },
 ]);
